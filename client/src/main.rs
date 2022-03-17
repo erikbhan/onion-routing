@@ -16,6 +16,8 @@ fn main() {
             break;
         }
         
+        // let package = encrypt(msg, find_path())
+
         send(msg, 0)
     }
     println!("Terminated.");
@@ -28,7 +30,7 @@ fn find_path() -> [i32; 3] {
 }
 
 // TODO: Write encrypting for path
-fn encrypt(mut msg:[u8; 8]) {
+fn encrypt(mut msg:[u8; 8], path:[i32; 3]) {
     let package;
     for node in nodes {
     }
@@ -47,7 +49,7 @@ fn send(mut msg:[u8; 8], node:i32) {
                 let mut data = [0 as u8; 8]; // using 6 byte buffer
                 match stream.read_exact(&mut data) {
 
-                    // TODO: decrypt
+                    //let result = decrypt(package);
 
                     Ok(_) => {
                         if &data == msg {
@@ -67,4 +69,12 @@ fn send(mut msg:[u8; 8], node:i32) {
             println!("Failed to connect: {}", e);
         }
     }
+}
+
+// TODO: decrypt
+fn decrypt(package:[u8;8]) -> [u8;8] {
+    let response;
+    for node in nodes {
+    }
+    return response;
 }
