@@ -1,6 +1,6 @@
 fn main() {
     // get portnumber from user on start up
-    // set up private key?
+    // get private key from enum? based on nr
     // listen to port
     // handle connection
     println!("Hello, world!");
