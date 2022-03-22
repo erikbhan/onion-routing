@@ -9,6 +9,7 @@ fn main() {
     let mut port = String::new();
     match stdin().read_line(&mut port) {
         Ok(_) => {
+            let port = port.trim();
             let port_ok = port == "1111" || port == "2222" || port == "3333";
             if port_ok {
                 println!("Starting Onion-node with adress {}:{}", addr, port)
@@ -24,8 +25,9 @@ fn main() {
     let node_id = port.substring(0, 1).parse::<i32>().unwrap();
     let private_key = format!("temp key {}", node_id);
     // listen to port
-    let full_addr = format!("{}:{}", addr, port);
-    let listener = TcpListener::bind(full_addr).unwrap();
+    let full_addr = format!("127.0.0.1:{}", port.trim());
+
+    let listener = TcpListener::bind(full_addr).expect("Could not establish listener!");
 
     for stream in listener.incoming() {
         match stream {
