@@ -4,7 +4,7 @@ use shuffle::irs::Irs;
 use rand::rngs::mock::StepRng;
 
 static NODES: [&str; 3] = ["1111", "2222", "3333"];
-// static KEYS: [&str; 3] = ["key1", "key2", "key3"]
+// static mut KEYS: [&str; 3] = ["key1", "key2", "key3"]
 
 fn main() {
     // get_keys();
@@ -45,7 +45,10 @@ fn find_path() -> Vec<usize> {
 /*
 // TODO: Handshake nodes to get 
 fn get_keys() {
-    for node in NODES
+    for i in 0..2 {
+        // let key = sent_to_exchange_key_lib(NODES[i])
+        // KEYS[i] = key
+    }
 }
 
 // TODO: Write encrypting for path
