@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .expect("failed to read data from socket");
 
                 //Prints all received data to stdout
-                //println!("{}", std::str::from_utf8(&buf).unwrap());
+                println!("{}", std::str::from_utf8(&buf).unwrap());
 
                 if n == 0 {
                     return;
