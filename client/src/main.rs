@@ -37,16 +37,18 @@ async fn get_nodes_and_keys(mut keys: [&str;N], mut nodes: [&str;N]) {
 
     stream.read_to_end(&mut res).expect("Failed to receive live nodes and keys from DA");
     
-    // TODO: parse nodes and keys from res
+    let json = json::parse(res);
 
-    nodes = ["localhost:1111", "localhost:2222", "localhost:3333"];
-    keys = ["k1", "k2", "k3"];
+    nodes = json.nodes;
+    keys = json.keys;
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut nodes: [&str; N];
     let mut keys: [&str; N];
+
+    get_nodes_and_keys(keys, nodes);
 
     let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
