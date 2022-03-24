@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use json::object;
 
 fn main() {
     let mut file = File::open("foo.p12").unwrap();
@@ -49,19 +50,23 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
     let data = String::from_utf8(buf[0..num_bytes_read].to_vec()).unwrap();
     let peer_addr = stream.get_ref().peer_addr().unwrap();
 
+    let mut nodes = nodes_clone.lock().unwrap();
+    let mut keys = keys_clone.lock().unwrap();
+
     // Handle request for nodes from client
     if data.eq("GET /nodes/keys HTTPS/1.1") {
-        // TODO: make and send JSON array with nodes
-        let node_json = "Coming soon";
+        let node_keys = object!{
+            nodes: nodes[0..3],
+            keys: keys[0..3],
+        };
+        let json_serial = json::stringify(node_keys);
 
-        stream.write_all(node_json).unwrap();
+        stream.write_all(json_serial).unwrap();
         stream.shutdown();
 
         return;
     }
     
-    let mut nodes = nodes_clone.lock().unwrap();
-    let mut keys = keys_clone.lock().unwrap();
     nodes.push(peer_addr.to_string());
     keys.push(data);
     println!("Pushed {} to nodes", peer_addr);
