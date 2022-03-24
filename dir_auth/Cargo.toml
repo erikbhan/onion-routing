@@ -1,12 +1,9 @@
 [package]
-name = "client"
+name = "dir_auth"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-shuffle = "0.1.7"
-rand = "0.8.5"
-tokio = { version = "1.17.0", features = ["full"] }
-openssl = "0.10.38"
+native-tls = "0.2"
