@@ -1,5 +1,5 @@
 [package]
-name = "node"
+name = "dir_auth"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,3 @@ edition = "2021"
 
 [dependencies]
 native-tls = "0.2"
-aes-gcm = "0.9"
-rand = "0.8"
-regex = "1"

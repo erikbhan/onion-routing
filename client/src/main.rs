@@ -1,3 +1,4 @@
+
 use tokio::net::TcpStream;
 use tokio::io::{self, AsyncWriteExt};
 use std::io::Write;
@@ -87,20 +88,56 @@ fn encrypt(msg:&[u8], path:[i32; 3]) {
             // private_key = KEYS[index]
             // send_to_encryption_lib(package, private_key)
     }
-    return package;
+    println!("Exiting program...");
+    Ok(())
 }
 
-// TODO: decrypt
-fn decrypt(package:[u8;8], path:[i32; 3]) -> [u8;8] {
-    let response;
-    for index in path {
-        // decode package
-            // private_key = KEYS[index]
-            // send_to_dencryption_lib(package, private_key)
+// // TODO: Write encrypting for path
+// fn encrypt(msg:&[u8], path:[i32; 3]) {
+//     let mut package = msg;
+//     for index in path.rev() {
+//         // set HEADER
+//             // destination = "localhost:{}", NODES[index]
+//         // encode package and header
+//             // private_key = KEYS[index]
+//             // send_to_encryption_lib(package, private_key)
+//     }
+//     return package;
+// }
+
+// // TODO: decrypt
+// fn decrypt(package:[u8;8], path:[i32; 3]) -> [u8;8] {
+//     let response;
+//     for index in path {
+//         // decode package
+//             // private_key = KEYS[index]
+//             // send_to_dencryption_lib(package, private_key)
+//     }
+//     return response;
+// }
+
+async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
+    stream.readable().await;
+    let mut buf = [0u8; 4096];
+    match stream.try_read(&mut buf) {
+        Ok(0) => {
+            println!("Stream closed");
+            return buf;
+        }
+        Ok(n) => {
+            println!("read {} bytes", n);
+            return buf;
+        }
+        //todo: error handling 😇👼
+        // Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+        //     continue;
+        // }
+        Err(e) => {
+            //return Err(e.into());
+            return buf;
+        }
     }
-    return response;
 }
-*/
 
 // TODO: send to first node in path
 // fn send(msg:&[u8], node:usize) {
@@ -126,4 +163,3 @@ fn decrypt(package:[u8;8], path:[i32; 3]) -> [u8;8] {
 //             println!("Failed to connect: {}", e);
 //         }
 //     }
-// }
