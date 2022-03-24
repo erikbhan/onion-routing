@@ -4,9 +4,8 @@ use native_tls::{Identity, TlsAcceptor, TlsStream};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
-use json::object;
 
 fn main() {
     let mut file = File::open("foo.p12").unwrap();
@@ -54,16 +53,8 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
     let mut keys = keys_clone.lock().unwrap();
 
     // Handle request for nodes from client
-    if data.eq("GET /nodes/keys HTTPS/1.1") {
-        let node_keys = object!{
-            nodes: nodes[0..3],
-            keys: keys[0..3],
-        };
-        let json_serial = json::stringify(node_keys);
-
-        stream.write_all(json_serial.as_bytes()).unwrap();
-        stream.shutdown().expect("Stream shutdown returned an error");
-
+    if data.contains("GET")  {
+        hande_get_request(data, stream, nodes, keys);
         return;
     }
     
@@ -73,5 +64,17 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
 
     // Answer incoming stream with ok
     stream.write_all(b"HTTP/1.1 200 OK\r\n").unwrap();
+    stream.shutdown().expect("Stream shutdown returned an error");
+}
+
+fn hande_get_request(data:String, mut stream:TlsStream<TcpStream>, nodes:MutexGuard<Vec<String>>, keys:MutexGuard<Vec<String>>) {
+    let mut send_string:String = "".to_string();
+    if data.eq("GET nodes HTTPS/1.1") {
+        send_string = format!("{}, {}, {}", nodes[0], nodes[1], nodes[2])
+    }
+    if data.eq("GET keys HTTPS/1.1") {
+        send_string = format!("{}, {}, {}", keys[0], keys[1], keys[2])
+    }
+    stream.write_all(send_string.as_bytes()).unwrap();
     stream.shutdown().expect("Stream shutdown returned an error");
 }

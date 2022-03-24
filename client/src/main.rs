@@ -3,7 +3,6 @@ use tokio::io::AsyncWriteExt;
 use std::error::Error;
 use std::io::{Write, Read};
 use native_tls::{ TlsConnector };
-use serde_json::{Value, json};
 
 const N: usize = 3; //number of nodes, and therefore keys etc.
 const DA_ADDR: &str = "0.0.0.0";
@@ -13,7 +12,7 @@ const DA_PORT: &str = "8443";
 //message: a message can be shown to the user before their input
 fn get_user_input(message: &str) -> String {
     print!("{}", message);
-    std::io::stdout().flush(); // Force print by flushing
+    std::io::stdout().flush().expect("Not all bytes could be written to terminal"); // Force print by flushing
     let mut input = String::new();
     std::io::stdin()
         .read_line(&mut input)
@@ -22,8 +21,8 @@ fn get_user_input(message: &str) -> String {
 }
 
 //asks the DA for nodes; returns an array of nodes where [0] is the entry and [N] is the last
-async fn get_nodes_and_keys(mut keys: [&str;N], mut nodes: [&str;N]) {
-    let rec = b"GET /nodes/keys HTTPS/1.1";
+async fn request_from_da(nodes_or_keys:&str) -> [String;N] {
+    let rec = format!("GET {} HTTPS/1.1", nodes_or_keys);
     let connector = TlsConnector::builder()
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
@@ -34,25 +33,28 @@ async fn get_nodes_and_keys(mut keys: [&str;N], mut nodes: [&str;N]) {
     // Domain will be ignored since cert/hostname verification is disabled
     let mut stream = connector.connect(DA_ADDR, stream).unwrap();
 
-    stream.write_all(rec).unwrap();
+    stream.write_all(rec.as_bytes()).unwrap();
     let mut res = vec![];
 
     stream.read_to_end(&mut res).expect("Failed to receive live nodes and keys from DA");
     
     let parsable_string = String::from_utf8(res.to_vec()).unwrap();
-    let jsonValue:Value = json!(parsable_string.as_str());
+    
+    parse_array(parsable_string)
+}
 
-    nodes = jsonValue["nodes"];
-    keys = *jsonValue.get("keys");
-
+fn parse_array(parsable_string:String) -> [String;N] {
+    let split:Vec<&str> = parsable_string.split(", ").collect();
+    [split[0].to_owned(), split[1].to_owned(), split[2].to_owned()]
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut nodes: [&str; N];
-    let mut keys: [&str; N];
+    let nodes: [String; N] = request_from_da("nodes").await;
+    let keys: [String; N] = request_from_da("keys").await;
 
-    get_nodes_and_keys(keys, nodes).await;
+    print!("{:?}", nodes);
+    print!("{:?}", keys);
 
     let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
@@ -62,7 +64,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             break;
         };
 
-        connection.write_all(&msg.as_bytes()).await?;
+        connection.write_all(msg.as_bytes()).await?;
         let buf = read_message_into_buffer(&connection).await;
         let response = String::from_utf8(buf.to_vec()).unwrap();
         print!("{}", response);
@@ -72,21 +74,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
-    stream.readable().await;
+    stream.readable().await.expect("Could not read buffer from server");
     let mut buf = [0u8; 4096];
     match stream.try_read(&mut buf) {
         Ok(0) => {
             println!("Stream closed");
-            return buf;
+            buf
         }
         Ok(n) => {
             println!("read {} bytes", n);
-            return buf;
+            buf
         }
         Err(e) => {
-            print!("An errror occured when recieving respose from server: {}", e.to_string());
-            let empty_buf = [0u8; 4096];
-            return empty_buf;
+            print!("An errror occured when recieving respose from server: {}", e);
+            [0u8; 4096]
         }
     }
 }
