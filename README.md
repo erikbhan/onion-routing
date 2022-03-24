@@ -1,20 +1,35 @@
 # onion-routing
+
 An attempt at implementing some form of onion routing.
 
-# Functionality
+## Functionality
+
 Nothing yet.
 
-# Future work and current weaknesses
+## Future work and current weaknesses
+
 Nothin yet.
 
-# External dependencies
-None yet.
+## External dependencies
 
-# Installation
-For users, for devs.
+Shuffle and rand for randomizing path from client to server.
 
-# How to run tests
+## Installation
+
+### For users
+
+Nothing yet
+
+### For devs
+
+Clone repository.
+
+- More info to come later
+
+## How to run tests
+
 Can't yet.
 
-# API documentation
+## API documentation
+
 Link goes here.

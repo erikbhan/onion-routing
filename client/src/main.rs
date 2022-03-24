@@ -1,60 +1,92 @@
-use openssl::error::ErrorStack;
-use openssl::rsa::Rsa;
-// Async/await
-use tokio::net::TcpStream;
-use tokio::io::AsyncWriteExt;
 
-// STD
-use std::error::Error;
+use tokio::net::TcpStream;
+use tokio::io::{self, AsyncWriteExt};
 use std::io::Write;
 
-// Cryptography
-use openssl::dh::Dh;
-use openssl::pkey::{PKey, Private};
+//use std::io::{Write, stdin, self};
+use shuffle::shuffler::Shuffler;
+use shuffle::irs::Irs;
+use rand::rngs::mock::StepRng;
 
-/// Number of nodes/keys to use and get from the DA. (Put in config file?)
-const N: usize = 3;
+const N: usize = 3; //number of nodes, and therefore keys etc.
 
-// TODO: Implement.
+//util method; reads data from the user via stdin and returns immutable string
+//message: a message can be shown to the user before their input
+fn get_user_input(message: &str) -> &str {
+    print!("{}", message);
+    std::io::stdout().flush(); // Force print by flushing
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Error when reading user input from stdin");
+    input.trim()
+}
+
+//asks the DA for nodes; returns an array of nodes where [0] is the entry and [N] is the last
 async fn get_nodes() -> [&'static str; N] {
+    //let da_stream = TcpStream::connect(get_user_input("DA ADDR: "));
+    
+    //TODO: https is important here!!
+
+    //TODO: client sends "can i haz n nodes" ->
+    // gets n node-addresses over tls ->
+    // parses adresses and returns method
+    
+    //currently just return node-addresses
     ["localhost:1111", "localhost:2222", "localhost:3333"]
 }
 
-// TODO: Implement. Returns array of shared keys with nodes.
-async fn get_keys(nodes: [&str; N]) -> [Result<PKey<Private>, ErrorStack>; N] {
-    let rsa1 = Rsa::generate(2048).unwrap();
-    let rsa2 = Rsa::generate(2048).unwrap();
-    let rsa3 = Rsa::generate(2048).unwrap();
-    let pkey1 = PKey::from_rsa(rsa1);
-    let pkey2 = PKey::from_rsa(rsa2);
-    let pkey3 = PKey::from_rsa(rsa3);
-    [pkey1, pkey2, pkey3]
-}
-
-fn encrypt(data: &str, keys: [PKey<&str>; N]) -> String {
-    let encrypted_data = String::new();   
-    for i in (0..N-1).rev() {
-      
-    }
-    "encrypted_data".to_string()
+async fn get_keys(nodes: [&str; N]) -> [&'static str; N] {
+    ["k1", "k2", "k3"]
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() {
+    //init client
     let nodes: [&str; N] = get_nodes().await;
-    //let keys: [&str; N] = get_keys(nodes).await;
-
-    // TODO: connect to entry node, not localhost
-    let mut connection = TcpStream::connect("127.0.0.1:8080").await?;
+    let keys: [&str; N] = get_keys(nodes).await;
+    let mut connection = TcpStream::connect(nodes[0]).await;
 
     loop {
         let msg = get_user_input("Message: ");
         if msg.eq("exit") {
             break;
         };
-        //encrypt(msg, keys);
-        connection.write_all(&msg.as_bytes()).await?;
-        let buf = read_message_into_buffer(&connection).await;
+        //msg.encrypt(keys);
+        connection.write_all(msg.as_bytes()).await;
+    }
+    println!("Exiting program...");
+}
+
+// // TODO (Maybe): find path
+// fn find_path() -> Vec<usize> {
+//     let mut path = vec![0, 1, 2];
+
+//     let mut rng = StepRng::new(2, 13);
+//     let mut irs = Irs::default();
+//     irs.shuffle(&mut path, &mut rng).expect("Could not shuffle path");
+
+//     path
+// }
+
+/*
+// TODO: Handshake nodes to get 
+fn get_keys() {
+    for i in 0..2 {
+        // let key = sent_to_exchange_key_lib(NODES[i])
+        // KEYS[i] = key
+    }
+}
+
+// TODO: Write encrypting for path
+fn encrypt(msg:&[u8], path:[i32; 3]) {
+    let mut package = msg;
+    for index in path.rev() {
+        // set HEADER
+            // destination = "localhost:{}", NODES[index]
+        // encode package and header
+            // private_key = KEYS[index]
+            // send_to_encryption_lib(package, private_key)
     }
     println!("Exiting program...");
     Ok(())
@@ -131,15 +163,3 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
 //             println!("Failed to connect: {}", e);
 //         }
 //     }
-// }
-
-/// Returns a String given by the user through stdin. Optional message prompt.
-fn get_user_input(message: &str) -> String {
-    print!("{}", message);
-    std::io::stdout().flush(); // Force print by flushing
-    let mut input = String::new();
-    std::io::stdin()
-        .read_line(&mut input)
-        .expect("Error when reading user input from stdin");
-    input.trim().to_string()
-}
