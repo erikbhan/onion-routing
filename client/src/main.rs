@@ -32,9 +32,9 @@ async fn get_keys(nodes: [&str; N]) -> [Result<PKey<Private>, ErrorStack>; N] {
 }
 
 fn encrypt(data: &str, keys: [PKey<&str>; N]) -> String {
-    let encrypted_data = String::new();
-    for i in N-1..0 {
-
+    let encrypted_data = String::new();   
+    for i in (0..N-1).rev() {
+      
     }
     "encrypted_data".to_string()
 }

@@ -1,114 +1,57 @@
-//use tokio::net::{TcpListener, TcpStream};
-use openssl::pkey::PKey;
-use openssl::rsa::{Rsa, Padding};
-use openssl::aes::{AesKey, aes_ige};
-use openssl::symm::Mode;
-use openssl::rand::rand_bytes;
-use hyper::{Client, Body, Method, Request, Uri};
-use hyper_tls::HttpsConnector;
+extern crate native_tls;
 
-/* The node should work like this:
-    1. On startup, a port should be chosen.
-        Maybe randomly? Can be the same as other nodes if on different IP.
-    2. When node is up and running, contact the DA. Send node's public key and address to DA over TLS.
-    3. Ready and waiting for client connections.
-*/
+use native_tls::{ TlsConnector };
+use std::io::{Read, Write};
+use std::net::{ TcpListener, TcpStream} ;
 
-async fn send_public_key_to_da(aes_key: &[u8; 16]) -> Result<(), Box<dyn std::error::Error + Send + Sync>>  {
-    let mut body = String::from(r#"{"library":""#);
-    body.push_str(std::str::from_utf8(aes_key).unwrap());
-    body.push_str(r#"hyper"}"#);
-    let req = Request::builder()
-        .method(Method::PUT)
-        .uri("localhost:5000") // TODO: DA's address
-        .header("content-type", "application/json")
-        .body(Body::from(body))?;
+const DA_ADDR: &str = "0.0.0.0";
+const DA_PORT: &str = "8443";
+const PORT: &str = "3000";
 
-    let https = HttpsConnector::new();
-    let client = Client::builder()
-        .build::<_, hyper::Body>(https);
-
-    let res = client.request(req).await?;
-
-    println!("Response: {}", res.status());
-
-    Ok(())
-}
-
-async fn prepare_keys() -> AesKey {
-    let mut buf = [0; 16];
-    rand_bytes(&mut buf).unwrap();
-    let aes_key = AesKey::new_encrypt(&buf).unwrap();
-    let mut iv = *b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\
-        \x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F";
-    send_public_key_to_da(&buf).await;
-    aes_key
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let aes_key = prepare_keys();
-
-    let client = Client::new();
-    let uri = "http://httpbin.org/ip";
-    let res = client.get(Uri::from_static(uri)).await.unwrap();
-
-    println!("Response: {}", res.status());
-    Ok(())
-
-
+fn get_key_and_send_to_da() -> [u8; 32] {
+    let key = b"an example very very secret key."; //32 byte
     
-    /*
-    // get portnumber from user on start up
-    //let addr = local_ip().unwrap();
-    //println!("Enter port 1111, 2222 or 3333:");
-    /*let mut port = String::new();
-    match stdin().read_line(&mut port) {
-        Ok(_) => {
-            let port = port.trim();
-            let port_ok = port == "1111" || port == "2222" || port == "3333";
-            if port_ok {
-                println!("Starting Onion-node with adress {}:{}", addr, port)
-            } else {
-                panic!("Port number not valid.")
-            }
-        },
-        Err(e) => {
-            panic!("Failed to read port: {}", e);
-        }
-    }*/
-    // get private key from enum? based on nr
-    let node_id = port.substring(0, 1).parse::<i32>().unwrap();
-    let private_key = format!("temp key {}", node_id);
-    // listen to port
-    let full_addr = format!("127.0.0.1:{}", port.trim());
+    let connector = TlsConnector::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
+        .build().expect("Error when building TLS connection");
 
-    let listener = TcpListener::bind(full_addr).expect("Could not establish listener!");
+    let stream = TcpStream::connect(format!("{}:{}", DA_ADDR, DA_PORT)).unwrap();
+
+    // Domain will be ignored since cert/hostname verification is disabled
+    let mut stream = connector.connect(DA_ADDR, stream).unwrap();
+
+    stream.write_all(key).unwrap();
+    let mut res = vec![];
+
+    // TODO: Error if not 200 OK
+    stream.read_to_end(&mut res).unwrap();
+    println!("{}", String::from_utf8_lossy(&res));
+    *key
+}
+
+fn main() {
+    let key = get_key_and_send_to_da();
+
+    let listener = TcpListener::bind(format!("localhost:{}", PORT)).unwrap();
 
     for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(move || {
-                    // handle connection
-                    handle_request(stream);
-                });
-            }
-            Err(_) => {
-                println!("Error");
-            }
-        }
-    }*/
+        let stream = stream.unwrap();
+
+        handle_connection(stream);
+    }
 }
 
-// handle connection:
-//fn handle_request(mut stream: TcpStream) {
-    // decrypt layer
-    // read header
-    // pass on to destination
-    // wait for response
-    // encrypt response
-    // pass response back to sender
-//}
-    
+fn handle_connection(mut stream: TcpStream) {
+    let mut buffer = [0; 1024];
+    let num_bytes_read = stream.read(&mut buffer).unwrap();
+    let data = std::str::from_utf8(&buffer[0..num_bytes_read]).unwrap();
 
-    
+    //For now, print received data
+    println!("{}", data);
+
+    // Answer incoming stream
+    let res_ok = b"HTTP/1.1 200 OK\r\n";
+    let num_read_bytes = stream.write(res_ok).unwrap();
+    stream.flush().unwrap();
+}
