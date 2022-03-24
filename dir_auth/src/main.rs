@@ -22,23 +22,6 @@ fn main() {
     let nodes = Arc::new(Mutex::new(Vec::new()));
     let keys = Arc::new(Mutex::new(Vec::new()));
 
-    fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<String>>>, keys_clone: Arc<Mutex<Vec<String>>>) {
-        let mut buf = [0u8; 4096];
-        let num_bytes_read = stream.read(&mut buf).unwrap();
-        let data = String::from_utf8(buf[0..num_bytes_read].to_vec()).unwrap();
-        let peer_addr = stream.get_ref().peer_addr().unwrap();
-        
-        let mut nodes = nodes_clone.lock().unwrap();
-        let mut keys = keys_clone.lock().unwrap();
-        nodes.push(peer_addr.to_string());
-        keys.push(data);
-        println!("Pushed {} to nodes", peer_addr);
-
-        // Answer incoming stream with ok
-        stream.write_all(b"HTTP/1.1 200 OK\r\n").unwrap();
-        stream.shutdown();
-    }
-
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -52,8 +35,38 @@ fn main() {
                     }
                 );
             }
-            Err(_e) => { /* connection failed */ }
+            Err(_e) => { 
+                print!("An error occured when receiving requests from node or client: {}", e.to_string());
+            }
         }
         println!("{:?}", nodes);
     }
+}
+
+fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<String>>>, keys_clone: Arc<Mutex<Vec<String>>>) {
+    let mut buf = [0u8; 4096];
+    let num_bytes_read = stream.read(&mut buf).unwrap();
+    let data = String::from_utf8(buf[0..num_bytes_read].to_vec()).unwrap();
+    let peer_addr = stream.get_ref().peer_addr().unwrap();
+
+    // Handle request for nodes from client
+    if data.eq("GET /nodes/keys HTTPS/1.1") {
+        // TODO: make and send JSON array with nodes
+        let node_json = "Coming soon";
+
+        stream.write_all(node_json).unwrap();
+        stream.shutdown();
+
+        return;
+    }
+    
+    let mut nodes = nodes_clone.lock().unwrap();
+    let mut keys = keys_clone.lock().unwrap();
+    nodes.push(peer_addr.to_string());
+    keys.push(data);
+    println!("Pushed {} to nodes", peer_addr);
+
+    // Answer incoming stream with ok
+    stream.write_all(b"HTTP/1.1 200 OK\r\n").unwrap();
+    stream.shutdown();
 }
