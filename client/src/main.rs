@@ -8,6 +8,7 @@ use std::io::Write;
 // use shuffle::irs::Irs;
 // use rand::rngs::mock::StepRng;
 
+
 const N: usize = 3; //number of nodes, and therefore keys etc.
 
 //util method; reads data from the user via stdin and returns immutable string
