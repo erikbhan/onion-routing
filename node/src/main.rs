@@ -1,26 +1,64 @@
-//use tokio::net::{TcpListener, TcpStream};
-use openssl::pkey::PKey;
-use openssl::rsa::{Rsa, Padding};
-use openssl::aes::{AesKey, aes_ige};
-use openssl::symm::Mode;
-use openssl::rand::rand_bytes;
-use hyper::{Client, Body, Method, Request, Uri};
-use hyper_tls::HttpsConnector;
+extern crate native_tls;
 
-/* The node should work like this:
-    1. On startup, a port should be chosen.
-        Maybe randomly? Can be the same as other nodes if on different IP.
-    2. When node is up and running, contact the DA. Send node's public key and address to DA over TLS.
-    3. Ready and waiting for client connections.
-*/
+use native_tls::{ TlsConnector };
+use std::io::{Read, Write};
+use std::net::TcpStream;
+use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
+use aes_gcm::aead::{Aead, NewAead};
 
+fn init() {
+    let key = b"an example very very secret key."; //32 byte
+    
+    // TODO: Error handling
+    // TODO: Cert verification    
+    let connector = TlsConnector::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
+        .build().unwrap();
+
+    let stream = TcpStream::connect("localhost:8443").unwrap();
+
+    // Domain will be ignored since cert/hostname verification is disabled
+    let mut stream = connector.connect("localhost", stream).unwrap();
+
+    stream.write_all(key).unwrap();
+    let mut res = vec![];
+
+    // TODO: Error if not 200 OK
+    stream.read_to_end(&mut res).unwrap();
+    println!("{}", String::from_utf8_lossy(&res));
+}
+
+fn main() {
+    init();
+    // TODO: Find better way to handle key (generate on startup).
+    let key = Key::from_slice(b"an example very very secret key.");
+    let cipher = Aes256Gcm::new(key);
+
+    // TODO: Gen new nonce for every message with a cryptographically secure random byte generator
+    // TODO: Nonce has to be stored; it is needed for decryption (I think?).
+    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+
+    let ciphertext = cipher.encrypt(nonce, b"plaintext message".as_ref())
+        .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
+
+    let plaintext = cipher.decrypt(nonce, ciphertext.as_ref())
+        .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
+
+    assert_eq!(&plaintext, b"plaintext message");
+    println!("{}", std::str::from_utf8(&plaintext).unwrap());
+}
+
+
+
+/*
 async fn send_public_key_to_da(aes_key: &[u8; 16]) -> Result<(), Box<dyn std::error::Error + Send + Sync>>  {
     let mut body = String::from(r#"{"library":""#);
     body.push_str(std::str::from_utf8(aes_key).unwrap());
     body.push_str(r#"hyper"}"#);
     let req = Request::builder()
         .method(Method::PUT)
-        .uri("localhost:5000") // TODO: DA's address
+        .uri("localhost:8443") // TODO: DA's address
         .header("content-type", "application/json")
         .body(Body::from(body))?;
 
@@ -35,29 +73,21 @@ async fn send_public_key_to_da(aes_key: &[u8; 16]) -> Result<(), Box<dyn std::er
     Ok(())
 }
 
-async fn prepare_keys() -> AesKey {
-    let mut buf = [0; 16];
-    rand_bytes(&mut buf).unwrap();
-    let aes_key = AesKey::new_encrypt(&buf).unwrap();
-    let mut iv = *b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\
-        \x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F";
-    send_public_key_to_da(&buf).await;
-    aes_key
+async fn prepare_keys() -> &'static str {
+    let buf = b"ABCDABCDABCDABCD";
+    //let mut buf = [0u8; 16];
+    //let mut iv = [0u8; 16];
+    //rand_bytes(&mut buf).unwrap();
+    //rand_bytes(&mut iv).unwrap();
+    //let aes_key = AesKey::new_encrypt(&buf).unwrap();
+    send_public_key_to_da(buf).await;
+    std::str::from_utf8(buf).unwrap()
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let aes_key = prepare_keys();
+async fn main() {
+    let aes_key = prepare_keys().await;
 
-    let client = Client::new();
-    let uri = "http://httpbin.org/ip";
-    let res = client.get(Uri::from_static(uri)).await.unwrap();
-
-    println!("Response: {}", res.status());
-    Ok(())
-
-
-    
     /*
     // get portnumber from user on start up
     //let addr = local_ip().unwrap();
@@ -111,4 +141,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //}
     
 
-    
+    */
