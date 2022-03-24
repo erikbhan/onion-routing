@@ -1,25 +1,26 @@
-
 use tokio::net::TcpStream;
-use tokio::io::{self, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
+use std::error::Error;
 use std::io::Write;
 
-//use std::io::{Write, stdin, self};
-use shuffle::shuffler::Shuffler;
-use shuffle::irs::Irs;
-use rand::rngs::mock::StepRng;
+// //use std::io::{Write, stdin, self};
+// use shuffle::shuffler::Shuffler;
+// use shuffle::irs::Irs;
+// use rand::rngs::mock::StepRng;
+
 
 const N: usize = 3; //number of nodes, and therefore keys etc.
 
 //util method; reads data from the user via stdin and returns immutable string
 //message: a message can be shown to the user before their input
-fn get_user_input(message: &str) -> &str {
+fn get_user_input(message: &str) -> String {
     print!("{}", message);
     std::io::stdout().flush(); // Force print by flushing
     let mut input = String::new();
     std::io::stdin()
         .read_line(&mut input)
         .expect("Error when reading user input from stdin");
-    input.trim()
+    input.trim().to_string()
 }
 
 //asks the DA for nodes; returns an array of nodes where [0] is the entry and [N] is the last
@@ -41,11 +42,13 @@ async fn get_keys(nodes: [&str; N]) -> [&'static str; N] {
 }
 
 #[tokio::main]
-async fn main() {
-    //init client
+async fn main() -> Result<(), Box<dyn Error>> {
     let nodes: [&str; N] = get_nodes().await;
     let keys: [&str; N] = get_keys(nodes).await;
-    let mut connection = TcpStream::connect(nodes[0]).await;
+
+    //TODO: update addr here to entry node when implemented
+    // ((DA IP in config file or...?))
+    let mut connection = TcpStream::connect("127.0.0.1:8080").await?;
 
     loop {
         let msg = get_user_input("Message: ");
@@ -53,40 +56,9 @@ async fn main() {
             break;
         };
         //msg.encrypt(keys);
-        connection.write_all(msg.as_bytes()).await;
-    }
-    println!("Exiting program...");
-}
-
-// // TODO (Maybe): find path
-// fn find_path() -> Vec<usize> {
-//     let mut path = vec![0, 1, 2];
-
-//     let mut rng = StepRng::new(2, 13);
-//     let mut irs = Irs::default();
-//     irs.shuffle(&mut path, &mut rng).expect("Could not shuffle path");
-
-//     path
-// }
-
-/*
-// TODO: Handshake nodes to get 
-fn get_keys() {
-    for i in 0..2 {
-        // let key = sent_to_exchange_key_lib(NODES[i])
-        // KEYS[i] = key
-    }
-}
-
-// TODO: Write encrypting for path
-fn encrypt(msg:&[u8], path:[i32; 3]) {
-    let mut package = msg;
-    for index in path.rev() {
-        // set HEADER
-            // destination = "localhost:{}", NODES[index]
-        // encode package and header
-            // private_key = KEYS[index]
-            // send_to_encryption_lib(package, private_key)
+        connection.write_all(&msg.as_bytes()).await?;
+        let buf = read_message_into_buffer(&connection).await;
+        //TODO: translate from buf to text
     }
     println!("Exiting program...");
     Ok(())
@@ -116,6 +88,9 @@ fn encrypt(msg:&[u8], path:[i32; 3]) {
 //     return response;
 // }
 
+
+
+//TODO: handle buffer better, rn it returns the buffer lol
 async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
     stream.readable().await;
     let mut buf = [0u8; 4096];
@@ -163,3 +138,4 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
 //             println!("Failed to connect: {}", e);
 //         }
 //     }
+// }
