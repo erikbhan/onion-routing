@@ -36,8 +36,8 @@ fn main() {
                     }
                 );
             }
-            Err(_e) => { 
-                print!("An error occured when receiving requests from node or client: {}", e.to_string());
+            Err(e) => { 
+                print!("An error occured when receiving requests from node or client: {}", e);
             }
         }
         println!("{:?}", nodes);
@@ -61,8 +61,8 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
         };
         let json_serial = json::stringify(node_keys);
 
-        stream.write_all(json_serial).unwrap();
-        stream.shutdown();
+        stream.write_all(json_serial.as_bytes()).unwrap();
+        stream.shutdown().expect("Stream shutdown returned an error");
 
         return;
     }
@@ -73,5 +73,5 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
 
     // Answer incoming stream with ok
     stream.write_all(b"HTTP/1.1 200 OK\r\n").unwrap();
-    stream.shutdown();
+    stream.shutdown().expect("Stream shutdown returned an error");
 }

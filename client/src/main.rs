@@ -1,7 +1,9 @@
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use std::error::Error;
-use std::io::Write;
+use std::io::{Write, Read};
+use native_tls::{ TlsConnector };
+use serde_json::{Value, json};
 
 const N: usize = 3; //number of nodes, and therefore keys etc.
 const DA_ADDR: &str = "0.0.0.0";
@@ -27,7 +29,7 @@ async fn get_nodes_and_keys(mut keys: [&str;N], mut nodes: [&str;N]) {
         .danger_accept_invalid_hostnames(true)
         .build().expect("Error when building TLS connection");
 
-    let stream = TcpStream::connect(format!("{}:{}", DA_ADDR, DA_PORT)).unwrap();
+    let stream:std::net::TcpStream = std::net::TcpStream::connect(format!("{}:{}", DA_ADDR, DA_PORT)).unwrap();
 
     // Domain will be ignored since cert/hostname verification is disabled
     let mut stream = connector.connect(DA_ADDR, stream).unwrap();
@@ -37,10 +39,12 @@ async fn get_nodes_and_keys(mut keys: [&str;N], mut nodes: [&str;N]) {
 
     stream.read_to_end(&mut res).expect("Failed to receive live nodes and keys from DA");
     
-    let json = json::parse(res);
+    let parsable_string = String::from_utf8(res.to_vec()).unwrap();
+    let jsonValue:Value = json!(parsable_string.as_str());
 
-    nodes = json.nodes;
-    keys = json.keys;
+    nodes = jsonValue["nodes"];
+    keys = *jsonValue.get("keys");
+
 }
 
 #[tokio::main]
@@ -48,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut nodes: [&str; N];
     let mut keys: [&str; N];
 
-    get_nodes_and_keys(keys, nodes);
+    get_nodes_and_keys(keys, nodes).await;
 
     let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
@@ -60,8 +64,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         connection.write_all(&msg.as_bytes()).await?;
         let buf = read_message_into_buffer(&connection).await;
-        let response = String::from_utf8(buf[0..num_bytes_read].to_vec()).unwrap();
-        print!(response);
+        let response = String::from_utf8(buf.to_vec()).unwrap();
+        print!("{}", response);
     }
     println!("Exiting program...");
     Ok(())
@@ -81,7 +85,8 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
         }
         Err(e) => {
             print!("An errror occured when recieving respose from server: {}", e.to_string());
-            return [];
+            let empty_buf = [0u8; 4096];
+            return empty_buf;
         }
     }
 }
