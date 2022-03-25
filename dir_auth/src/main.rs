@@ -78,3 +78,9 @@ fn hande_get_request(data:String, mut stream:TlsStream<TcpStream>, nodes:MutexGu
     stream.write_all(send_string.as_bytes()).unwrap();
     stream.shutdown().expect("Stream shutdown returned an error");
 }
+
+#[cfg(test)]
+mod tests {
+    // TODO: hande_get_request
+    // TODO: handle_client
+}

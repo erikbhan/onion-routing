@@ -92,3 +92,10 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    // TODO: read_message_into_buffer
+    // TODO: parse_array
+    // TODO: request_from_da
+    // TODO: get_user_input
+}

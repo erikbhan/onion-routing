@@ -58,3 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+}

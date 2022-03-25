@@ -60,3 +60,9 @@ fn handle_connection(mut stream: TcpStream) {
     let num_read_bytes = stream.write(res_ok).unwrap();
     stream.flush().unwrap();
 }
+
+#[cfg(test)]
+mod tests {
+    // TODO: handle_connection
+    // TODO: get_key_and_send_to_da
+}
