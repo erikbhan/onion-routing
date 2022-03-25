@@ -1,16 +1,20 @@
 extern crate native_tls;
 
 use native_tls::{ TlsConnector };
+use rand::{SeedableRng, RngCore};
 use std::io::{Read, Write};
-use std::net::{ TcpListener, TcpStream} ;
+use std::net::{ TcpListener, TcpStream};
+use rand::rngs::StdRng;
 
 const DA_ADDR: &str = "0.0.0.0";
 const DA_PORT: &str = "8443";
 const PORT: &str = "3000";
 
 fn get_key_and_send_to_da() -> [u8; 32] {
-    let key = b"an example very very secret key."; //32 byte
-    
+    let mut rng = StdRng::from_entropy();
+    let mut key = [0u8; 32];
+    rng.fill_bytes(&mut key);
+
     let connector = TlsConnector::builder()
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
@@ -21,13 +25,14 @@ fn get_key_and_send_to_da() -> [u8; 32] {
     // Domain will be ignored since cert/hostname verification is disabled
     let mut stream = connector.connect(DA_ADDR, stream).unwrap();
 
-    stream.write_all(key).unwrap();
+    stream.write_all(&key).unwrap();
     let mut res = vec![];
 
     // TODO: Error if not 200 OK
     stream.read_to_end(&mut res).unwrap();
     println!("{}", String::from_utf8_lossy(&res));
-    *key
+
+    key
 }
 
 fn main() {
