@@ -3,6 +3,8 @@ use tokio::io::AsyncWriteExt;
 use std::error::Error;
 use std::io::{Write, Read};
 use native_tls::{ TlsConnector };
+use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
+use aes_gcm::aead::{Aead, NewAead};
 
 const N: usize = 3; //number of nodes, and therefore keys etc.
 const DA_ADDR: &str = "0.0.0.0";
@@ -92,3 +94,9 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
     }
 }
 
+fn encrypt_message(plaintext: [u8; N], keys: [String; N]) {
+    for key in keys {
+        let k = [0u8; 32];
+        k.io;;write(key.as_bytes()).unwrap();
+    }
+}
