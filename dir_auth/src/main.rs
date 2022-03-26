@@ -54,6 +54,9 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
 
     // Handle request for nodes from client
     if data.contains("GET")  {
+        keys.push("an example very very secret key.".to_string());
+        keys.push("an example very very secret key.".to_string());
+        keys.push("an example very very secret key.".to_string());
         hande_get_request(data, stream, nodes, keys);
         return;
     }
@@ -69,10 +72,13 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
 
 fn hande_get_request(data:String, mut stream:TlsStream<TcpStream>, nodes:MutexGuard<Vec<String>>, keys:MutexGuard<Vec<String>>) {
     let mut send_string:String = "".to_string();
+    println!("{}", data);
+    println!("{:?}", keys);
     if data.eq("GET nodes HTTPS/1.1") {
         send_string = format!("{}, {}, {}", nodes[0], nodes[1], nodes[2])
     }
     if data.eq("GET keys HTTPS/1.1") {
+        println!("{:?}", keys);
         send_string = format!("{}, {}, {}", keys[0], keys[1], keys[2])
     }
     stream.write_all(send_string.as_bytes()).unwrap();
