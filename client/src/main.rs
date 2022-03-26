@@ -1,8 +1,11 @@
-use tokio::net::TcpStream;
-use tokio::io::AsyncWriteExt;
 use std::error::Error;
-use std::io::{Write, Read};
-use native_tls::{ TlsConnector };
+use std::io::{Write};
+use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
+use aes_gcm::aead::{Aead, NewAead};
+
+use native_tls::TlsConnector;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 const DA_ADDR: &str = "0.0.0.0";
 const DA_PORT: &str = "8443";
@@ -22,22 +25,20 @@ fn get_user_input(message: &str) -> String {
 //asks the DA for nodes; returns an array of nodes where [0] is the entry and [N] is the last
 async fn request_from_da(nodes_or_keys:&str) -> Vec<String> {
     let rec = format!("GET {} HTTPS/1.1", nodes_or_keys);
-    let connector = TlsConnector::builder()
-        .danger_accept_invalid_certs(true)
-        .danger_accept_invalid_hostnames(true)
-        .build().expect("Error when building TLS connection");
 
-    let stream:std::net::TcpStream = std::net::TcpStream::connect(format!("{}:{}", DA_ADDR, DA_PORT)).unwrap();
+    let stream = TcpStream::connect(format!("{}:{}", DA_ADDR, DA_PORT)).await.unwrap();
+    let cx = TlsConnector::builder()
+    .danger_accept_invalid_certs(true)
+    .danger_accept_invalid_hostnames(true)
+    .build().expect("Error when creating TLS connector builder");
+    let cx = tokio_native_tls::TlsConnector::from(cx);
+    let mut stream = cx.connect(DA_ADDR, stream).await.unwrap();
 
-    // Domain will be ignored since cert/hostname verification is disabled
-    let mut stream = connector.connect(DA_ADDR, stream).unwrap();
-
-    stream.write_all(rec.as_bytes()).unwrap();
-    let mut res = vec![];
-
-    stream.read_to_end(&mut res).expect("Failed to receive live nodes and keys from DA");
+    stream.write_all(rec.as_bytes()).await.expect("Error when sending to DA");
+    let mut data = Vec::new();
+    stream.read_to_end(&mut data).await.expect("Error when reading from DA");
     
-    let parsable_string = String::from_utf8(res.to_vec()).unwrap();
+    let parsable_string = String::from_utf8(data).unwrap();
     
     parse_array(parsable_string)
 }
@@ -56,21 +57,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let nodes = request_from_da("nodes").await;
     let keys = request_from_da("keys").await;
 
-    print!("{:?}", nodes);
-    print!("{:?}", keys);
-
-    let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
+    //let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
     loop {
         let msg = get_user_input("Message: ");
         if msg.eq("exit") {
             break;
         };
+        println!("msg: '{}'", msg);
 
-        connection.write_all(msg.as_bytes()).await?;
-        let buf = read_message_into_buffer(&connection).await;
-        let response = String::from_utf8(buf.to_vec()).unwrap();
-        print!("{}", response);
+        let enc_data = encrypt_message(msg, keys.clone());
+        println!("enc_data: '{:?}'", enc_data);
+
+        let dec_data = decrypt_message(enc_data, keys.clone());
+        println!("dec_data: '{:?}'", dec_data);
+
+        //connection.write_all(&enc_data).await?;
+        //let buf = read_message_into_buffer(&connection).await;
+        //let dec_data = decrypt_message(buf.to_vec(), keys.clone());
+        //let response = String::from_utf8(dec_data).unwrap();
+        //print!("{}", response);
     }
     println!("Exiting program...");
     Ok(())
