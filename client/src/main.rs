@@ -53,13 +53,9 @@ fn parse_array(parsable_string: String) -> [String; N] {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let message = String::from("Hello world!");
-    println!("{}", message);
     let keys = [String::from("AAAABBBBCCCCDDDD"), String::from("AAAABBBBDDDDDDDD"), String::from("AAAAAAAACCCCDDDD")];
     let encrypted = encrypt_message(message, keys.clone());
-    println!("{:?}", encrypted);
     let decrypted = decrypt_message(encrypted, keys);
-    let s = std::str::from_utf8(&decrypted).unwrap();
-    println!("{}", s);
     
     // let nodes: [String; N] = request_from_da("nodes").await;
     // let keys: [String; N] = request_from_da("keys").await;
@@ -104,11 +100,34 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
 }
 
 fn encrypt_message(plaintext: String, keys: [String; N]) -> Vec<u8> {
-    let key = Key::from_slice(b"an example very very secret key.");
-    let cipher = Aes256Gcm::new(key);
+    let mut keys = keys;
+    keys.reverse();
+
+    let key1 = key_from_string(keys[0].clone());
+    let key2 = key_from_string(keys[1].clone());
+    let key3 = key_from_string(keys[2].clone());
+
+    let key1 = Key::from_slice(&key1);
+    let key2 = Key::from_slice(&key2);
+    let key3 = Key::from_slice(&key3);
+
+    let cipher1 = Aes256Gcm::new(key1);
+    let cipher2 = Aes256Gcm::new(key2);
+    let cipher3 = Aes256Gcm::new(key3);
+
     let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
-    let ciphertext = cipher.encrypt(nonce, plaintext.as_bytes())
+
+    println!("Plaintext: '{}', as bytes: {:?}", plaintext, plaintext.as_bytes());
+    let ciphertext = cipher1.encrypt(nonce, plaintext.as_bytes())
         .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
+    println!("Encryption 1: {:?}", ciphertext);
+    let ciphertext = cipher2.encrypt(nonce, ciphertext.as_ref())
+        .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
+    println!("Encryption 2: {:?}", ciphertext);
+    let ciphertext = cipher3.encrypt(nonce, ciphertext.as_ref())
+        .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
+    println!("Encryption 3: {:?}", ciphertext);
+    
     ciphertext
     // let mut keys = keys;
     // keys.reverse();
@@ -124,12 +143,31 @@ fn encrypt_message(plaintext: String, keys: [String; N]) -> Vec<u8> {
 }
 
 fn decrypt_message(ciphertext: Vec<u8>, keys: [String; N]) -> Vec<u8> {
-    let key = Key::from_slice(b"an example very very secret key.");
-    let cipher = Aes256Gcm::new(key);
-    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
-    let plaintext = cipher.decrypt(nonce, ciphertext.as_ref())
-        .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
+    let key1 = key_from_string(keys[0].clone());
+    let key2 = key_from_string(keys[1].clone());
+    let key3 = key_from_string(keys[2].clone());
 
+    let key1 = Key::from_slice(&key1);
+    let key2 = Key::from_slice(&key2);
+    let key3 = Key::from_slice(&key3);
+
+    let cipher1 = Aes256Gcm::new(key1);
+    let cipher2 = Aes256Gcm::new(key2);
+    let cipher3 = Aes256Gcm::new(key3);
+
+    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+
+    println!("Ciphertext: {:?}", ciphertext);
+    let ciphertext = cipher1.decrypt(nonce, ciphertext.as_ref())
+        .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
+    println!("Decryption 1: {:?}", ciphertext);
+    let ciphertext = cipher2.decrypt(nonce, ciphertext.as_ref())
+        .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
+    println!("Decryption 2: {:?}", ciphertext);
+    let plaintext = cipher3.decrypt(nonce, ciphertext.as_ref())
+        .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
+    println!("Decryption 3: {:?}", plaintext);
+    
     // let plaintext = vec![0u8];
     // for key_str in keys {
     //     let key = key_from_string(key_str.clone());
