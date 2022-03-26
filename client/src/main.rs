@@ -1,10 +1,9 @@
 use std::error::Error;
-use std::io::{Write, Read, stdout};
+use std::io::{Write};
 use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
 use aes_gcm::aead::{Aead, NewAead};
 
 use native_tls::TlsConnector;
-use std::net::ToSocketAddrs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -54,9 +53,6 @@ fn parse_array(parsable_string: String) -> [String; N] {
 async fn main() -> Result<(), Box<dyn Error>> {
     //let nodes: [String; N] = request_from_da("nodes").await;
     let keys: [String; N] = request_from_da("keys").await;
-
-    //print!("{:?}", nodes);
-    print!("{:?}", keys);
 
     //let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
@@ -120,29 +116,13 @@ fn encrypt_message(plaintext: String, keys: [String; N]) -> Vec<u8> {
 
     let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
 
-    println!("Plaintext: '{}', as bytes: {:?}", plaintext, plaintext.as_bytes());
     let ciphertext = cipher1.encrypt(nonce, plaintext.as_bytes())
         .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
-    println!("Encryption 1: {:?}", ciphertext);
     let ciphertext = cipher2.encrypt(nonce, ciphertext.as_ref())
         .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
-    println!("Encryption 2: {:?}", ciphertext);
     let ciphertext = cipher3.encrypt(nonce, ciphertext.as_ref())
         .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
-    println!("Encryption 3: {:?}", ciphertext);
-    
     ciphertext
-    // let mut keys = keys;
-    // keys.reverse();
-    // let ciphertext = plaintext.into_bytes();
-    // for key_str in keys {
-    //     let key = key_from_string(key_str.clone());
-    //     let key = Key::from(key);
-    //     let cipher = Aes256Gcm::new(&key);
-    //     let nonce = Nonce::from_slice(b"unique nonce"); //96-bits, unique per message
-    //     let ciphertext = cipher.encrypt(nonce, ciphertext.as_ref()).expect("Error during encryption");  
-    // }
-    // ciphertext
 }
 
 fn decrypt_message(ciphertext: Vec<u8>, keys: [String; N]) -> Vec<u8> {
@@ -160,25 +140,12 @@ fn decrypt_message(ciphertext: Vec<u8>, keys: [String; N]) -> Vec<u8> {
 
     let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
 
-    println!("Ciphertext: {:?}", ciphertext);
     let ciphertext = cipher1.decrypt(nonce, ciphertext.as_ref())
         .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
-    println!("Decryption 1: {:?}", ciphertext);
     let ciphertext = cipher2.decrypt(nonce, ciphertext.as_ref())
         .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
-    println!("Decryption 2: {:?}", ciphertext);
     let plaintext = cipher3.decrypt(nonce, ciphertext.as_ref())
         .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
-    println!("Decryption 3: {:?}", plaintext);
-    
-    // let plaintext = vec![0u8];
-    // for key_str in keys {
-    //     let key = key_from_string(key_str.clone());
-    //     let key = Key::from(key);
-    //     let cipher = Aes256Gcm::new(&key);
-    //     let nonce = Nonce::from_slice(b"unique nonce"); //96-bits, unique per message
-    //     let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).expect("Error during decryption");  
-    // }
     plaintext
 }
 
