@@ -1,7 +1,7 @@
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use std::error::Error;
-use std::io::{Write, Read};
+use std::io::{Write, Read, stdout};
 use native_tls::{ TlsConnector };
 use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
 use aes_gcm::aead::{Aead, NewAead};
@@ -45,33 +45,42 @@ async fn request_from_da(nodes_or_keys:&str) -> [String;N] {
     parse_array(parsable_string)
 }
 
-fn parse_array(parsable_string:String) -> [String;N] {
-    let split:Vec<&str> = parsable_string.split(", ").collect();
+fn parse_array(parsable_string: String) -> [String; N] {
+    let split: Vec<&str> = parsable_string.split(", ").collect();
     [split[0].to_owned(), split[1].to_owned(), split[2].to_owned()]
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let nodes: [String; N] = request_from_da("nodes").await;
-    let keys: [String; N] = request_from_da("keys").await;
+    let message = String::from("Hello world!");
+    println!("{}", message);
+    let keys = [String::from("AAAABBBBCCCCDDDD"), String::from("AAAABBBBDDDDDDDD"), String::from("AAAAAAAACCCCDDDD")];
+    let encrypted = encrypt_message(message, keys.clone());
+    println!("{:?}", encrypted);
+    let decrypted = decrypt_message(encrypted, keys);
+    let s = std::str::from_utf8(&decrypted).unwrap();
+    println!("{}", s);
+    
+    // let nodes: [String; N] = request_from_da("nodes").await;
+    // let keys: [String; N] = request_from_da("keys").await;
 
-    print!("{:?}", nodes);
-    print!("{:?}", keys);
+    // print!("{:?}", nodes);
+    // print!("{:?}", keys);
 
-    let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
+    // let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
-    loop {
-        let msg = get_user_input("Message: ");
-        if msg.eq("exit") {
-            break;
-        };
+    // loop {
+    //     let msg = get_user_input("Message: ");
+    //     if msg.eq("exit") {
+    //         break;
+    //     };
 
-        connection.write_all(msg.as_bytes()).await?;
-        let buf = read_message_into_buffer(&connection).await;
-        let response = String::from_utf8(buf.to_vec()).unwrap();
-        print!("{}", response);
-    }
-    println!("Exiting program...");
+    //     connection.write_all(msg.as_bytes()).await?;
+    //     let buf = read_message_into_buffer(&connection).await;
+    //     let response = String::from_utf8(buf.to_vec()).unwrap();
+    //     print!("{}", response);
+    // }
+    // println!("Exiting program...");
     Ok(())
 }
 
@@ -94,9 +103,46 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
     }
 }
 
-fn encrypt_message(plaintext: [u8; N], keys: [String; N]) {
-    for key in keys {
-        let k = [0u8; 32];
-        k.io;;write(key.as_bytes()).unwrap();
-    }
+fn encrypt_message(plaintext: String, keys: [String; N]) -> Vec<u8> {
+    let key = Key::from_slice(b"an example very very secret key.");
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+    let ciphertext = cipher.encrypt(nonce, plaintext.as_bytes())
+        .expect("encryption failure!"); // NOTE: handle this error to avoid panics!
+    ciphertext
+    // let mut keys = keys;
+    // keys.reverse();
+    // let ciphertext = plaintext.into_bytes();
+    // for key_str in keys {
+    //     let key = key_from_string(key_str.clone());
+    //     let key = Key::from(key);
+    //     let cipher = Aes256Gcm::new(&key);
+    //     let nonce = Nonce::from_slice(b"unique nonce"); //96-bits, unique per message
+    //     let ciphertext = cipher.encrypt(nonce, ciphertext.as_ref()).expect("Error during encryption");  
+    // }
+    // ciphertext
+}
+
+fn decrypt_message(ciphertext: Vec<u8>, keys: [String; N]) -> Vec<u8> {
+    let key = Key::from_slice(b"an example very very secret key.");
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+    let plaintext = cipher.decrypt(nonce, ciphertext.as_ref())
+        .expect("decryption failure!"); // NOTE: handle this error to avoid panics!
+
+    // let plaintext = vec![0u8];
+    // for key_str in keys {
+    //     let key = key_from_string(key_str.clone());
+    //     let key = Key::from(key);
+    //     let cipher = Aes256Gcm::new(&key);
+    //     let nonce = Nonce::from_slice(b"unique nonce"); //96-bits, unique per message
+    //     let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).expect("Error during decryption");  
+    // }
+    plaintext
+}
+
+fn key_from_string(key_as_string: String) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    bytes[0..key_as_string.len()].copy_from_slice(key_as_string.as_bytes());
+    bytes
 }
