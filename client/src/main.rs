@@ -52,31 +52,29 @@ fn parse_array(parsable_string: String) -> [String; N] {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let message = String::from("Hello world!");
-    let keys = [String::from("AAAABBBBCCCCDDDD"), String::from("AAAABBBBDDDDDDDD"), String::from("AAAAAAAACCCCDDDD")];
-    let encrypted = encrypt_message(message, keys.clone());
-    let decrypted = decrypt_message(encrypted, keys);
-    
-    // let nodes: [String; N] = request_from_da("nodes").await;
-    // let keys: [String; N] = request_from_da("keys").await;
+    let nodes: [String; N] = request_from_da("nodes").await;
+    let keys: [String; N] = request_from_da("keys").await;
 
-    // print!("{:?}", nodes);
-    // print!("{:?}", keys);
+    print!("{:?}", nodes);
+    print!("{:?}", keys);
 
-    // let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
+    let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
-    // loop {
-    //     let msg = get_user_input("Message: ");
-    //     if msg.eq("exit") {
-    //         break;
-    //     };
+    loop {
+        let msg = get_user_input("Message: ");
+        if msg.eq("exit") {
+            break;
+        };
 
-    //     connection.write_all(msg.as_bytes()).await?;
-    //     let buf = read_message_into_buffer(&connection).await;
-    //     let response = String::from_utf8(buf.to_vec()).unwrap();
-    //     print!("{}", response);
-    // }
-    // println!("Exiting program...");
+        let enc_data = encrypt_message(msg, keys.clone());
+
+        connection.write_all(&enc_data).await?;
+        let buf = read_message_into_buffer(&connection).await;
+        let dec_data = decrypt_message(buf.to_vec(), keys.clone());
+        let response = String::from_utf8(dec_data).unwrap();
+        print!("{}", response);
+    }
+    println!("Exiting program...");
     Ok(())
 }
 
