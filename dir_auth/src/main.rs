@@ -54,6 +54,11 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
 
     // Handle request for nodes from client
     if data.contains("GET")  {
+        // !!!!! TESTING KEYS !!!!! -- remove when nodes work
+        keys.push("an example very very secret key.".to_string());
+        keys.push("an example very very secret key.".to_string());
+        keys.push("an example very very secret key.".to_string());
+        // !!!!! TESTING KEYS !!!!!
         hande_get_request(data, stream, nodes, keys);
         return;
     }
