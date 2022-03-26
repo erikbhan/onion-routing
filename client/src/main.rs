@@ -4,7 +4,6 @@ use std::error::Error;
 use std::io::{Write, Read};
 use native_tls::{ TlsConnector };
 
-const N: usize = 3; //number of nodes, and therefore keys etc.
 const DA_ADDR: &str = "0.0.0.0";
 const DA_PORT: &str = "8443";
 
@@ -21,7 +20,7 @@ fn get_user_input(message: &str) -> String {
 }
 
 //asks the DA for nodes; returns an array of nodes where [0] is the entry and [N] is the last
-async fn request_from_da(nodes_or_keys:&str) -> [String;N] {
+async fn request_from_da(nodes_or_keys:&str) -> Vec<String> {
     let rec = format!("GET {} HTTPS/1.1", nodes_or_keys);
     let connector = TlsConnector::builder()
         .danger_accept_invalid_certs(true)
@@ -43,15 +42,19 @@ async fn request_from_da(nodes_or_keys:&str) -> [String;N] {
     parse_array(parsable_string)
 }
 
-fn parse_array(parsable_string:String) -> [String;N] {
+fn parse_array(parsable_string:String) -> Vec<String> {
     let split:Vec<&str> = parsable_string.split(", ").collect();
-    [split[0].to_owned(), split[1].to_owned(), split[2].to_owned()]
+    let mut array:Vec<String> = [].to_vec();
+    for string in split {
+        array.append(&mut [string.to_string()].to_vec());
+    }
+    array
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let nodes: [String; N] = request_from_da("nodes").await;
-    let keys: [String; N] = request_from_da("keys").await;
+    let nodes = request_from_da("nodes").await;
+    let keys = request_from_da("keys").await;
 
     print!("{:?}", nodes);
     print!("{:?}", keys);
@@ -93,9 +96,26 @@ async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
 }
 
 #[cfg(test)]
-mod tests {
-    // TODO: read_message_into_buffer
-    // TODO: parse_array
-    // TODO: request_from_da
-    // TODO: get_user_input
+mod client_test {
+    use super::*;
+
+    #[test]
+    fn read_message_into_buffer_test() {
+        assert!(false);
+    }
+
+    #[test]
+    fn parse_array_test() {
+        assert_eq!(parse_array("1, 2, 3".to_string()), ["1".to_owned(), "2".to_owned(), "3".to_owned()].to_vec())
+    }
+    
+    #[test]
+    fn request_from_da_test() {
+        assert!(false);
+    }
+
+    #[test]
+    fn get_user_input_test() {
+        assert!(false);
+    }
 }

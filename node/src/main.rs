@@ -62,7 +62,16 @@ fn handle_connection(mut stream: TcpStream) {
 }
 
 #[cfg(test)]
-mod tests {
-    // TODO: handle_connection
-    // TODO: get_key_and_send_to_da
+mod node_test {
+    use super::*;
+
+    #[test]
+    fn handle_connection_test() {
+        assert!(false);
+    }
+
+    #[test]
+    fn get_key_and_send_to_da_test() {
+        assert!(false);
+    }
 }

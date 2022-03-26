@@ -54,7 +54,9 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
 
     // Handle request for nodes from client
     if data.contains("GET")  {
-        hande_get_request(data, stream, nodes, keys);
+        let send_string = get_nodes_or_keys(data, nodes, keys);
+        stream.write_all(send_string.as_bytes()).unwrap();
+        stream.shutdown().expect("Stream shutdown returned an error");
         return;
     }
     
@@ -67,20 +69,54 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
     stream.shutdown().expect("Stream shutdown returned an error");
 }
 
-fn hande_get_request(data:String, mut stream:TlsStream<TcpStream>, nodes:MutexGuard<Vec<String>>, keys:MutexGuard<Vec<String>>) {
-    let mut send_string:String = "".to_string();
+fn get_nodes_or_keys(data:String, nodes:MutexGuard<Vec<String>>, keys:MutexGuard<Vec<String>>) -> String {
+    let mut send_string;
     if data.eq("GET nodes HTTPS/1.1") {
-        send_string = format!("{}, {}, {}", nodes[0], nodes[1], nodes[2])
+        let mut iter = nodes.iter().cloned();
+        send_string = iter.next().unwrap();
+        for _i in 1..nodes.len() {
+            send_string += &(", ".to_string() + &iter.next().unwrap());
+        }
     }
-    if data.eq("GET keys HTTPS/1.1") {
-        send_string = format!("{}, {}, {}", keys[0], keys[1], keys[2])
+    else if data.eq("GET keys HTTPS/1.1") {
+        let mut iter = keys.iter().cloned();
+        send_string = iter.next().unwrap();
+        for _i in 1..keys.len() {
+            send_string += &(", ".to_string() + &iter.next().unwrap());
+        }
+    } 
+    else {
+        send_string = "GET request not in the right format.".to_string();
     }
-    stream.write_all(send_string.as_bytes()).unwrap();
-    stream.shutdown().expect("Stream shutdown returned an error");
+    send_string
 }
 
 #[cfg(test)]
-mod tests {
-    // TODO: hande_get_request
-    // TODO: handle_client
+mod dir_auth_test {
+    use super::*;
+
+    #[test]
+    fn get_nodesor_keys_test() {
+        // test prerequisites:
+        let test_vec_node = ["1".to_string(), "2".to_string(), "3".to_string()].to_vec();
+        let test_vec_key = ["42".to_string(), "42".to_string(), "42".to_string()].to_vec();
+        let expected_sting_node = "1, 2, 3";
+        let expected_sting_key = "42, 42, 42";
+        let nodes = Arc::new(Mutex::new(test_vec_node));
+        let keys = Arc::new(Mutex::new(test_vec_key));
+
+        // get nodes:
+        assert_eq!(get_nodes_or_keys("GET nodes HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), expected_sting_node);
+
+        // get keys
+        assert_eq!(get_nodes_or_keys("GET keys HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), expected_sting_key);
+
+        // bad request
+        assert_eq!(get_nodes_or_keys("GET HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), "GET request not in the right format.".to_string());
+    }
+
+    #[test]
+    fn handle_client_test() {
+        assert!(false);
+    }
 }
