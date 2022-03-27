@@ -144,7 +144,7 @@ fn encrypt_message(plaintext: String, keys: Vec<[u8;32]>) -> Result<Vec<u8>, aes
 }
 
 fn decrypt_message(ciphertext: Vec<u8>, keys: Vec<[u8;32]>) -> Result<Vec<u8>, aes_gcm::Error>  {
-    let mut keys = keys;
+    let keys = keys;
 
     let ciphers = generate_ciphers(keys);
     let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
@@ -184,13 +184,6 @@ fn key_from_string(key_as_string: String) -> [u8; 32] {
 #[cfg(test)]
 mod client_test {
     use super::*;
-
-    /*
-    #[tokio::test]
-    async fn read_message_into_buffer_test() {
-        assert!(false);
-    }
-    */
 
     #[test]
     fn parse_array_test() {

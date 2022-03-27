@@ -118,9 +118,4 @@ mod dir_auth_test {
         // bad request
         assert_eq!(get_nodes_or_keys("GET HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), "GET request not in the right format.".to_string());
     }
-
-    #[test]
-    fn handle_client_test() {
-        assert!(false);
-    }
 }
