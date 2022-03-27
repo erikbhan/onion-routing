@@ -89,6 +89,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         } 
 
+        //connection.write_all(&enc_data).await?;
+        //let buf = read_message_into_buffer(&connection).await;
+        //let dec_data = decrypt_message(buf.to_vec(), keys.clone());
+        //let response = String::from_utf8(dec_data).unwrap();
+        //print!("{}", response);
+
         let mut dec_data = Vec::new();
         match decrypt_message(enc_data, keys.clone()) {
             Ok(val) => {
@@ -99,13 +105,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-        println!("{:?}", String::from_utf8(dec_data).unwrap());
-
-        //connection.write_all(&enc_data).await?;
-        //let buf = read_message_into_buffer(&connection).await;
-        //let dec_data = decrypt_message(buf.to_vec(), keys.clone());
-        //let response = String::from_utf8(dec_data).unwrap();
-        //print!("{}", response);
+        println!("{:?}", String::from_utf8_lossy(&dec_data));
     }
     println!("Exiting program...");
     Ok(())
@@ -120,26 +120,14 @@ fn encrypt_message(plaintext: &mut String, keys: Vec<[u8;32]>, nodes: Vec<String
     nonces.reverse();
 
     let ciphers = generate_ciphers(keys);
-    //let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
-
-
+    
     plaintext.push_str(&format!("\\{}\\", &nodes[0]));
-    println!();
-    println!("Decrypted: {}", &plaintext);
+    // println!();
+    // println!("Decrypted: {}", &plaintext);
     let mut ciphertext = ciphers[0].encrypt(nonces[0], plaintext.as_bytes());
-    // let mut unwrapper_ciphertext = vec![];
-    // match ciphertext {
-    //     Ok(text) => {
-    //         println!("Encrypted: {}", String::from_utf8_lossy(&text));
-    //         unwrapper_ciphertext = text;
-    //     },
-    //     Err(err) => {
-    //         println!("{}", err);
-    //     }
-    // }
     match ciphertext.clone() {
         Ok(value) => {
-            println!("Encrypted: {}", String::from_utf8_lossy(&value));
+            // println!("Encrypted: {}", String::from_utf8_lossy(&value));
         },
         Err(err) => {
             println!("{}", err)
@@ -148,7 +136,7 @@ fn encrypt_message(plaintext: &mut String, keys: Vec<[u8;32]>, nodes: Vec<String
 
 
     for i in 1..N {
-        println!();
+        // println!();
         let mut unwrapper_ciphertext = vec![];
         match ciphertext {
             Ok(text) => {
@@ -162,12 +150,12 @@ fn encrypt_message(plaintext: &mut String, keys: Vec<[u8;32]>, nodes: Vec<String
         let ip_str = format!("\\{}\\", &nodes[i]);
         let mut ip = ip_str.into_bytes();
         unwrapper_ciphertext.append(&mut ip);
-        println!("Decrypted: {}", String::from_utf8_lossy(&unwrapper_ciphertext));
+        // println!("Decrypted: {}", String::from_utf8_lossy(&unwrapper_ciphertext));
 
         ciphertext = ciphers[i].encrypt(nonces[i], unwrapper_ciphertext.as_ref());
         match ciphertext.clone() {
             Ok(val2) => {
-                println!("Encrypted: {}", String::from_utf8_lossy(&val2));
+                // println!("Encrypted: {}", String::from_utf8_lossy(&val2));
                 //decrypted = val2;
             },
             Err(err) => {
@@ -193,8 +181,8 @@ fn decrypt_message(ciphertext: Vec<u8>, keys: Vec<[u8;32]>) -> Result<Vec<u8>, a
         let mut text = vec![];
         match plaintext {
             Ok(val) => {
-                println!();
-                println!("Encrypted: {}", String::from_utf8_lossy(&val));
+                // println!();
+                // println!("Encrypted: {}", String::from_utf8_lossy(&val));
                 text = val;
             },
             Err(err) => {
@@ -211,7 +199,7 @@ fn decrypt_message(ciphertext: Vec<u8>, keys: Vec<[u8;32]>) -> Result<Vec<u8>, a
         //let mut decrypted = vec![];
         match plaintext.clone() {
             Ok(val2) => {
-                println!("Decrypted: {}", String::from_utf8_lossy(&val2));
+                // println!("Decrypted: {}", String::from_utf8_lossy(&val2));
                 //decrypted = val2;
             },
             Err(err) => {
