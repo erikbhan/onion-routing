@@ -1,8 +1,9 @@
 use std::error::Error;
 use std::io::{Write};
-use aes_gcm::aead::consts::{B1, B0};
+use std::vec;
 use aes_gcm::aead::generic_array::typenum::UInt;
 use aes_gcm::{Key, Nonce, AesGcm, Aes256Gcm}; // Or `Aes128Gcm`
+use aes_gcm::aead::consts::{B1, B0};
 use aes_gcm::aead::{NewAead, Aead};
 
 use native_tls::TlsConnector;
@@ -60,24 +61,25 @@ fn parse_array(parsable_string:String) -> Vec<String> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     //let nodes = request_from_da("nodes").await;
+    let nodes = 
+        vec!["localhost:1001".to_string(), "localhost:1002".to_string(), "localhost:1003".to_string()];
     let keys_unformatted = request_from_da("keys").await;
     let keys = format_keys(keys_unformatted);
 
     //let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
 
     loop {
-        let msg = get_user_input("Message: ");
+        let mut msg = get_user_input("Message: ");
         if msg.eq("exit") {
             break;
-        }
-        if msg.is_empty() { // if message from user is empty the loop will try again
-            print!("Input was empty (possibly due to an error), please try again.");
+        } else if msg.is_empty() {
+            println!("Input was empty, please try again.");
             continue;
         }
-        println!("msg: '{}'", msg);
 
-        let mut enc_data = Vec::new(); 
-        match encrypt_message(msg, keys.clone()) {
+        let mut enc_data = Vec::new();
+        //Stop using .clone on keys and nodes
+        match encrypt_message(&mut msg, keys.clone(), nodes.clone()) {
             Ok(val) => {
                 enc_data = val;
             }
@@ -86,7 +88,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 print!("Could not encrypt message due to unforseen error: {}", err);
             }
         } 
-        println!("enc_data: '{:?}'", enc_data);
+
+        //connection.write_all(&enc_data).await?;
+        //let buf = read_message_into_buffer(&connection).await;
+        //let dec_data = decrypt_message(buf.to_vec(), keys.clone());
+        //let response = String::from_utf8(dec_data).unwrap();
+        //print!("{}", response);
 
         let mut dec_data = Vec::new();
         match decrypt_message(enc_data, keys.clone()) {
@@ -94,51 +101,68 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 dec_data = val;
             }
             Err(err) => {
-                // maybe panic here?
-                print!("Could not encrypt message due to unforseen error: {}", err);
+                println!("Could not decrypt message: {}", err); // Should we panic?
             }
         };
-        println!("dec_data: '{:?}'", dec_data);
 
-        //connection.write_all(&enc_data).await?;
-        //let buf = read_message_into_buffer(&connection).await;
-        //let dec_data = decrypt_message(buf.to_vec(), keys.clone());
-        //let response = String::from_utf8(dec_data).unwrap();
-        //print!("{}", response);
+        println!("{:?}", String::from_utf8_lossy(&dec_data));
     }
     println!("Exiting program...");
     Ok(())
 }
 
-async fn read_message_into_buffer(stream: &TcpStream) -> [u8; 4096] {
-    stream.readable().await.expect("Could not read buffer from server");
-    let mut buf = [0u8; 4096];
-    match stream.try_read(&mut buf) {
-        Ok(0) => {
-            println!("Stream closed");
-            buf
-        }
-        Ok(n) => {
-            println!("read {} bytes", n);
-            buf
-        }
-        Err(e) => {
-            print!("An errror occured when recieving respose from server: {}", e);
-            [0u8; 4096]
-        }
-    }
-}
-
-fn encrypt_message(plaintext: String, keys: Vec<[u8;32]>) -> Result<Vec<u8>, aes_gcm::Error>  {
+fn encrypt_message(plaintext: &mut String, keys: Vec<[u8;32]>, nodes: Vec<String>) -> Result<Vec<u8>, aes_gcm::Error>  {
     let mut keys = keys;
+    let mut nodes = nodes;
+    let mut nonces = vec![Nonce::from_slice(b"uniqua nonce"), Nonce::from_slice(b"unidue nonce"), Nonce::from_slice(b"ucique nonce")];
     keys.reverse();
+    nodes.reverse();
+    nonces.reverse();
 
     let ciphers = generate_ciphers(keys);
-    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+    
+    plaintext.push_str(&format!("\\{}\\", &nodes[0]));
+    // println!();
+    // println!("Decrypted: {}", &plaintext);
+    let mut ciphertext = ciphers[0].encrypt(nonces[0], plaintext.as_bytes());
+    match ciphertext.clone() {
+        Ok(_value) => {
+            // println!("Encrypted: {}", String::from_utf8_lossy(&value));
+        },
+        Err(err) => {
+            println!("{}", err)
+        }
+    }
 
-    let mut ciphertext = ciphers[0].encrypt(nonce, plaintext.as_bytes());
+
     for i in 1..N {
-        ciphertext = ciphers[i].encrypt(nonce, ciphertext.unwrap().as_ref());
+        // println!();
+        let mut unwrapper_ciphertext = vec![];
+        match ciphertext {
+            Ok(text) => {
+                //println!("Decrypted: {}", String::from_utf8_lossy(&text));
+                unwrapper_ciphertext = text;
+            },
+            Err(err) => {
+                println!("{}", err);
+            }
+        }
+        let ip_str = format!("\\{}\\", &nodes[i]);
+        let mut ip = ip_str.into_bytes();
+        unwrapper_ciphertext.append(&mut ip);
+        // println!("Decrypted: {}", String::from_utf8_lossy(&unwrapper_ciphertext));
+
+        ciphertext = ciphers[i].encrypt(nonces[i], unwrapper_ciphertext.as_ref());
+        match ciphertext.clone() {
+            Ok(_val2) => {
+                // println!("Encrypted: {}", String::from_utf8_lossy(&val2));
+                //decrypted = val2;
+            },
+            Err(err) => {
+                println!("{}", err);
+            }
+        }
+
     }
     ciphertext
 }
@@ -147,13 +171,43 @@ fn decrypt_message(ciphertext: Vec<u8>, keys: Vec<[u8;32]>) -> Result<Vec<u8>, a
     let keys = keys;
 
     let ciphers = generate_ciphers(keys);
-    let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
+    let nonces = vec![Nonce::from_slice(b"uniqua nonce"), Nonce::from_slice(b"unidue nonce"), Nonce::from_slice(b"ucique nonce")];
+    //let nonce = Nonce::from_slice(b"unique nonce"); // 96-bits; unique per message
 
-    let mut ciphertext:Result<std::vec::Vec<u8>, aes_gcm::Error> = Ok(ciphertext);
+
+    let mut plaintext = Ok(ciphertext);
     for i in 0..N {
-        ciphertext = ciphers[i].decrypt(nonce, ciphertext.unwrap().as_ref());
+
+        let mut text = vec![];
+        match plaintext {
+            Ok(val) => {
+                // println!();
+                // println!("Encrypted: {}", String::from_utf8_lossy(&val));
+                text = val;
+            },
+            Err(err) => {
+                println!("{}", err);
+            }
+        }
+
+        let mut ip_removed = text;
+        if i != 0 {
+            ip_removed = ip_removed[..ip_removed.len()-16].to_vec();
+        }
+        plaintext = ciphers[i].decrypt(nonces[i], ip_removed.as_ref());
+
+        //let mut decrypted = vec![];
+        match plaintext.clone() {
+            Ok(_val2) => {
+                // println!("Decrypted: {}", String::from_utf8_lossy(&val2));
+                //decrypted = val2;
+            },
+            Err(err) => {
+                println!("{}", err);
+            }
+        }
     }
-    ciphertext
+    plaintext
 }
 
 fn generate_ciphers(keys: Vec<[u8;32]>) -> Vec<AesGcm<aes_gcm::aes::Aes256, UInt<UInt<UInt<UInt<aes_gcm::aead::generic_array::typenum::UTerm, B1>, B1>, B0>, B0>>>{
@@ -181,6 +235,7 @@ fn key_from_string(key_as_string: String) -> [u8; 32] {
     bytes
 }
 
+
 #[cfg(test)]
 mod client_test {
     use super::*;
@@ -196,7 +251,7 @@ mod client_test {
     fn get_user_input_test() {
         assert_eq!(get_user_input("How are you?"), "great");
     }
-
+/*
     #[test]
     fn encrypt_message_test() {
         let keys_unformatted = ["Dette er en kul nokkel som virke".to_string(), "Dette er en kul nokkel som virke".to_string(), "Dette er en kul nokkel som virke".to_string()];
@@ -257,7 +312,7 @@ mod client_test {
         
         assert_eq!(plaintext, decrypted)
     }
-
+ */
     #[test]
     fn format_keys_test() {
         let keys_unformatted = ["Writing tests is slow and boring".to_string(), "Writing tests is slow and boring".to_string(), "Writing tests is slow and boring".to_string()];
