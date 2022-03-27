@@ -126,7 +126,7 @@ fn encrypt_message(plaintext: &mut String, keys: Vec<[u8;32]>, nodes: Vec<String
     // println!("Decrypted: {}", &plaintext);
     let mut ciphertext = ciphers[0].encrypt(nonces[0], plaintext.as_bytes());
     match ciphertext.clone() {
-        Ok(value) => {
+        Ok(_value) => {
             // println!("Encrypted: {}", String::from_utf8_lossy(&value));
         },
         Err(err) => {
@@ -154,7 +154,7 @@ fn encrypt_message(plaintext: &mut String, keys: Vec<[u8;32]>, nodes: Vec<String
 
         ciphertext = ciphers[i].encrypt(nonces[i], unwrapper_ciphertext.as_ref());
         match ciphertext.clone() {
-            Ok(val2) => {
+            Ok(_val2) => {
                 // println!("Encrypted: {}", String::from_utf8_lossy(&val2));
                 //decrypted = val2;
             },
@@ -198,7 +198,7 @@ fn decrypt_message(ciphertext: Vec<u8>, keys: Vec<[u8;32]>) -> Result<Vec<u8>, a
 
         //let mut decrypted = vec![];
         match plaintext.clone() {
-            Ok(val2) => {
+            Ok(_val2) => {
                 // println!("Decrypted: {}", String::from_utf8_lossy(&val2));
                 //decrypted = val2;
             },
