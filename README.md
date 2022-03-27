@@ -40,25 +40,19 @@ To be written about.
 
 ## Installation
 
-### For users
-
-Nothing yet
-
-### For devs
-
 - Clone repository
 
-- Use ``cargo run --bin dir_auth`` run to start the directory authority, a DA must be operating for the nodes and client to work.
+- Use ``cargo run --bin dir_auth`` run to start the directory authority, a DA must be operating for the nodes and client to work
 
-- Use ``cargo run --bin node`` run to start a node, a client will make use of up to three nodes.
+- Use ``cargo run --bin node`` run to start a node, a client will make use of up to three nodes
 
-- Use ``cargo run --bin client`` run to start the client.
+- Use ``cargo run --bin client`` run to start the client
 
 ## How to run tests
 
-To run tests use ``cargo test`` to run all tests in project.
+To run tests use ``cargo test`` to run all tests (not ignored) in project.
 
-One test is ignored due to needing user input that is not available in ci/cd to run this test ``cargo test -- --ignored
+One test is ignored due to needing user input that is not available in ci/cd. To run ignored tests use ``cargo test -- --ignored``.
 
 ## API documentation
 
