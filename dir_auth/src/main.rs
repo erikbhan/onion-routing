@@ -1,11 +1,15 @@
+mod node_key;
+
 extern crate native_tls;
 
 use native_tls::{Identity, TlsAcceptor, TlsStream};
+use rand::Rng;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
+use node_key::NodeKey;
 
 fn main() {
     let mut file = File::open("foo.p12").unwrap();
@@ -19,19 +23,18 @@ fn main() {
     let listener = TcpListener::bind("0.0.0.0:8443").unwrap();
 
     // Type alias?
-    let nodes = Arc::new(Mutex::new(Vec::new()));
-    let keys = Arc::new(Mutex::new(Vec::new()));
+    let node_vec:Vec<NodeKey> = Vec::new();
+    let nodes = Arc::new(Mutex::new(node_vec));
 
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 let acceptor = acceptor.clone();
                 let nodes_clone = Arc::clone(&nodes);
-                let keys_clone = Arc::clone(&keys);
                 thread::spawn(
                     move || {
                         let stream = acceptor.accept(stream).unwrap();
-                        handle_client(stream, nodes_clone, keys_clone);
+                        handle_client(stream, nodes_clone);
                     }
                 );
             }
@@ -39,33 +42,28 @@ fn main() {
                 print!("An error occured when receiving requests from node or client: {}", e);
             }
         }
+        
         println!("{:?}", nodes);
     }
 }
 
-fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<String>>>, keys_clone: Arc<Mutex<Vec<String>>>) {
+fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<NodeKey>>>) {
     let mut buf = [0u8; 4096];
     let num_bytes_read = stream.read(&mut buf).unwrap();
     let data = String::from_utf8(buf[0..num_bytes_read].to_vec()).unwrap();
     let peer_addr = stream.get_ref().peer_addr().unwrap();
 
     let mut nodes = nodes_clone.lock().unwrap();
-    let mut keys = keys_clone.lock().unwrap();
 
     // Handle request for nodes from client
     if data.contains("GET")  {
-        // !!!!! TESTING KEYS !!!!! -- remove when nodes work
-        keys.push("an example very very secret key.".to_string());
-        keys.push("an example very very secret key.".to_string());
-        keys.push("an example very very secret key.".to_string());
-        // !!!!! TESTING KEYS !!!!!
-        stream.write_all(get_nodes_or_keys(data, nodes, keys).as_bytes()).unwrap();
+        stream.write_all(get_nodes_and_keys(nodes).as_bytes()).unwrap();
         stream.shutdown().expect("Stream shutdown returned an error");
         return;
     }
     
-    nodes.push(peer_addr.to_string());
-    keys.push(data);
+    let node_key = NodeKey{node:peer_addr.to_string(), key: data};
+    nodes.push(node_key);
     println!("Pushed {} to nodes", peer_addr);
 
     // Answer incoming stream with ok
@@ -73,26 +71,35 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
     stream.shutdown().expect("Stream shutdown returned an error");
 }
 
-fn get_nodes_or_keys(data:String, nodes:MutexGuard<Vec<String>>, keys:MutexGuard<Vec<String>>) -> String {
-    let mut send_string;
-    if data.eq("GET nodes HTTPS/1.1") {
-        let mut iter = nodes.iter().cloned();
-        send_string = iter.next().unwrap();
-        for _i in 1..nodes.len() {
-            send_string += &(", ".to_string() + &iter.next().unwrap());
-        }
+fn get_nodes_and_keys(nodes:MutexGuard<Vec<NodeKey>>) -> String {
+    let index = get_random_path(nodes.len());
+
+    let mut send_string = String::new();
+
+    for i in index {
+        let random_node_key = &nodes[i].to_string();
+        send_string += &format!("\\{}\\", random_node_key);
     }
-    else if data.eq("GET keys HTTPS/1.1") {
-        let mut iter = keys.iter().cloned();
-        send_string = iter.next().unwrap();
-        for _i in 1..keys.len() {
-            send_string += &(", ".to_string() + &iter.next().unwrap());
-        }
-    } 
-    else {
-        send_string = "GET request not in the right format.".to_string();
-    }
+
     send_string
+}
+
+fn get_random_path(len: usize) -> [usize;3] {
+    let mut rng = rand::thread_rng();
+    let mut all_indexes = Vec::with_capacity(len);
+
+    for i in 0..len {
+        all_indexes.push(i);
+    }
+
+    let mut index:[usize;3] = [0, 0, 0];
+
+    for i in 0..3 {
+        let rand:usize = rng.gen_range(0..len-i);
+        index[i] = all_indexes.remove(rand);
+    }
+
+    index
 }
 
 #[cfg(test)]
@@ -100,22 +107,27 @@ mod dir_auth_test {
     use super::*;
 
     #[test]
-    fn get_nodes_or_keys_test() {
-        // test prerequisites:
-        let test_vec_node = ["1".to_string(), "2".to_string(), "3".to_string()].to_vec();
-        let test_vec_key = ["42".to_string(), "42".to_string(), "42".to_string()].to_vec();
-        let expected_sting_node = "1, 2, 3";
-        let expected_sting_key = "42, 42, 42";
+    fn get_nodes_and_keys_test() {
+        let test_vec_node = Vec::from([NodeKey{node: "1".to_string(), key: "1".to_string()}, 
+                                                    NodeKey{node: "2".to_string(), key: "2".to_string()}, 
+                                                    NodeKey{node: "3".to_string(), key: "3".to_string()}]);
         let nodes = Arc::new(Mutex::new(test_vec_node));
-        let keys = Arc::new(Mutex::new(test_vec_key));
 
-        // get nodes:
-        assert_eq!(get_nodes_or_keys("GET nodes HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), expected_sting_node);
+        let nodes_and_keys = get_nodes_and_keys(nodes.lock().unwrap());
+        let node_key1 = "node: 1, key: 1".to_string();
+        let node_key2 = "node: 2, key: 2".to_string();
+        let node_key3 = "node: 3, key: 3".to_string();
 
-        // get keys
-        assert_eq!(get_nodes_or_keys("GET keys HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), expected_sting_key);
+        assert!(nodes_and_keys.contains(&node_key1) && nodes_and_keys.contains(&node_key2) && nodes_and_keys.contains(&node_key3));
+    }
 
-        // bad request
-        assert_eq!(get_nodes_or_keys("GET HTTPS/1.1".to_string(), nodes.lock().unwrap(), keys.lock().unwrap()), "GET request not in the right format.".to_string());
+    #[test]
+    fn get_random_path_test() {
+        let index = get_random_path(5);
+        let all_index:[usize;5] = [0,1,2,3,4];
+
+        for i in index {
+            assert!(all_index.contains(&i));
+        }
     }
 }

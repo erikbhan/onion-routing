@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::io::{Write};
+use std::string;
 use aes_gcm::aead::consts::{B1, B0};
 use aes_gcm::aead::generic_array::typenum::UInt;
 use aes_gcm::{Key, Nonce, AesGcm, Aes256Gcm}; // Or `Aes128Gcm`
@@ -24,8 +25,8 @@ fn get_user_input(message: &str) -> String {
 }
 
 //asks the DA for nodes; returns an array of nodes where [0] is the entry and [N] is the last
-async fn request_from_da(nodes_or_keys:&str) -> Vec<String> {
-    let rec = format!("GET {} HTTPS/1.1", nodes_or_keys);
+async fn request_from_da() -> (Vec<String>, Vec<String>) {
+    let rec = format!("GET /nodes HTTPS/1.1");
 
     let stream = TcpStream::connect(format!("{}:{}", DA_ADDR, DA_PORT)).await.unwrap();
     let cx = TlsConnector::builder()
@@ -41,26 +42,37 @@ async fn request_from_da(nodes_or_keys:&str) -> Vec<String> {
     
     let parsable_string = String::from_utf8(data).unwrap();
     
-    let mut vec = parse_array(parsable_string);
-    if vec.len() > N {
-        vec = vec[0..N].to_vec();
-    }
-    vec
+    parse_array(parsable_string)
 }
 
-fn parse_array(parsable_string:String) -> Vec<String> {
-    let split:Vec<&str> = parsable_string.split(", ").collect();
-    let mut array:Vec<String> = [].to_vec();
+fn parse_array(parsable_string:String) -> (Vec<String>, Vec<String>) {
+    let split:Vec<&str> = parsable_string.split("\\").collect();
+    let mut nodes:Vec<String> = Vec::with_capacity(3);
+    let mut keys:Vec<String> = Vec::with_capacity(3);
     for string in split {
-        array.push(string.to_string());
+        if !string.contains("node") {
+            continue;
+        }
+        let (node, key) = parse_node(string);
+        nodes.push(node);
+        keys.push(key);
     }
-    array
+
+    (nodes, keys)
+}
+
+fn parse_node(str:&str) -> (String, String){
+    // "node: 1, key: 1"
+    let split:Vec<&str> = str.split(", ").collect();
+    let node_addr = split[0].to_owned()[6..].to_string();
+    let key = split[1].to_owned()[5..].to_string();
+
+    (node_addr, key)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    //let nodes = request_from_da("nodes").await;
-    let keys_unformatted = request_from_da("keys").await;
+    let (nodes,keys_unformatted) = request_from_da().await;
     let keys = format_keys(keys_unformatted);
 
     //let mut connection = TcpStream::connect("127.0.0.1:8080").await?; //REMEMBER: update addr here to entry node when implemented
@@ -187,14 +199,19 @@ mod client_test {
 
     #[test]
     fn parse_array_test() {
-        assert_eq!(parse_array("1, 2, 3".to_string()), ["1".to_owned(), "2".to_owned(), "3".to_owned()].to_vec())
+        assert_eq!(parse_array("\\node: 1, key: 1\\".to_string()), (vec!["1".to_string()],vec!["1".to_string()]))
     }
 
-    // This test passes if the user writes great, but needs to be ignored for cicd
     #[test]
-    #[ignore = "Testing user-input from teminal requiers adding lots of unnessesary code to support mocking"]
+    fn parse_node_test() {
+        assert_eq!(parse_node("node: 1, key: 1"), ("1".to_string(),"1".to_string()))
+    }
+
+    // This test passes if the user writes great, but needs to be ignored for ci/cd
+    #[test]
+    #[ignore = "Testing user-input from terminal requires adding lots of unnecessary code to support mocking"]
     fn get_user_input_test() {
-        assert_eq!(get_user_input("How are you?"), "great");
+        assert_eq!(get_user_input("How are you? (great)"), "great");
     }
 
     #[test]
