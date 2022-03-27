@@ -61,12 +61,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod server_test {
-    use super::*;
-
-    // should extract a handle connection method and write a test like this:
-    // https://rust-lang.github.io/async-book/09_example/03_tests.html
-    #[test]
-    fn handle_connection_test() {
-        assert!(false);
-    }
+    
 }

@@ -59,7 +59,8 @@ fn handle_client(mut stream: TlsStream<TcpStream>, nodes_clone: Arc<Mutex<Vec<St
         keys.push("an example very very secret key.".to_string());
         keys.push("an example very very secret key.".to_string());
         // !!!!! TESTING KEYS !!!!!
-        hande_get_request(data, stream, nodes, keys);
+        stream.write_all(get_nodes_or_keys(data, nodes, keys).as_bytes()).unwrap();
+        stream.shutdown().expect("Stream shutdown returned an error");
         return;
     }
     
@@ -99,7 +100,7 @@ mod dir_auth_test {
     use super::*;
 
     #[test]
-    fn get_nodesor_keys_test() {
+    fn get_nodes_or_keys_test() {
         // test prerequisites:
         let test_vec_node = ["1".to_string(), "2".to_string(), "3".to_string()].to_vec();
         let test_vec_key = ["42".to_string(), "42".to_string(), "42".to_string()].to_vec();
