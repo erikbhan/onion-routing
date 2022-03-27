@@ -4,7 +4,11 @@ An onion-routing echo server, developed by Erik Borgeteien Hansen og Oda Alida F
 
 ## Functionality
 
+![Onion routing](https://user-images.githubusercontent.com/42799026/160297689-2fe0cbca-17b2-44c6-bbea-fc3ba68f3a43.png)
+
 ### Directory Authority
+
+![DirAuth](https://user-images.githubusercontent.com/42799026/160297676-ef8707f9-a16e-4b9c-85d3-4f0f95004172.png)
 
 The directory Authority (DA) server waits for nodes to announce them selfs and send their public key. When a node starts up it sends its address and it's public key to the DA  which stores them in the list of live nodes.
 
