@@ -36,7 +36,7 @@ fn get_key_and_send_to_da() -> [u8; 32] {
 }
 
 fn main() {
-    let key = get_key_and_send_to_da();
+    let _key = get_key_and_send_to_da();
 
     let listener = TcpListener::bind(format!("localhost:{}", PORT)).unwrap();
 
@@ -57,53 +57,10 @@ fn handle_connection(mut stream: impl Read + Write + Unpin) {
 
     // Answer incoming stream
     let res_ok = b"HTTP/1.1 200 OK\r\n";
-    let num_read_bytes = stream.write(res_ok).unwrap();
+    let _num_read_bytes = stream.write(res_ok).unwrap();
     stream.flush().unwrap();
 }
 
 #[cfg(test)]
-mod node_test {
-    use super::*;
-
-    #[test]
-    fn handle_connection_test() {
-        let input_bytes = b"Hello, from the testing stream!";
-        let mut contents = vec![0u8; 1024];
-        contents[..input_bytes.len()].clone_from_slice(input_bytes);
-        let mut stream = MockTcpStream {
-            read_data: contents,
-            write_data: Vec::new(),
-        };
-
-        handle_connection(&mut stream);
-        let mut buf = [0u8; 1024];
-        stream.read_exact(&mut buf).unwrap();
-
-        let expected_response = "HTTP/1.1 200 OK\r\n".to_string();
-        assert!(stream.write_data.starts_with(expected_response.as_bytes()));
-    }
-}
-
-struct MockTcpStream {
-    read_data: Vec<u8>,
-    write_data: Vec<u8>,
-}
-
-impl Read for MockTcpStream {
-    fn read(self: &mut MockTcpStream, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
-        let size: usize = std::cmp::min(self.read_data.len(), buf.len());
-        buf[..size].copy_from_slice(&self.read_data[..size]);
-        Ok(size)
-    }
-}
-
-impl Write for MockTcpStream {
-    fn write(self: &mut MockTcpStream, buf: &[u8]) -> std::result::Result<usize, std::io::Error> {
-        self.write_data = Vec::from(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(self: &mut MockTcpStream) -> std::result::Result<(), std::io::Error> {
-        Ok(())
-    }
-}
+mod test;
+pub mod mock_stream;
